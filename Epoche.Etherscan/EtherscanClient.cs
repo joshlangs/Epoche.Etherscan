@@ -11,6 +11,7 @@ public class EtherscanClient
     readonly HttpClient Client;
     readonly string? ApiKey;
     readonly TimeSpan MinCallInterval;
+    readonly string QueryStart;
 
     static readonly (string Key, string Value) TagLatest = ("tag", "latest");
     static readonly JsonSerializerOptions Options = new()
@@ -31,6 +32,7 @@ public class EtherscanClient
         Client = new HttpClient() { BaseAddress = new Uri(endpoint) };
         ApiKey = apiKey;
         MinCallInterval = minCallInterval ?? (string.IsNullOrEmpty(apiKey) ? EtherscanClientOptions.DefaultMinCallIntervalWithoutKey : EtherscanClientOptions.DefaultMinCallIntervalWithKey);
+        QueryStart = endpoint.Contains('?') ? "&" : "?";
     }
     public EtherscanClient(IOptions<EtherscanClientOptions> options) : this(options.Value.Endpoint, options.Value.ApiKey, options.Value.MinCallInterval)
     {
@@ -71,7 +73,7 @@ public class EtherscanClient
             callParams.Add(("apikey", ApiKey));
         }
 
-        var url = "?" + string
+        var url = QueryStart + string
             .Join("&", parameters
                 .Concat(callParams)
                 .Select(x => $"{x.Key}={x.Value}"));
