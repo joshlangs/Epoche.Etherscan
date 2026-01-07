@@ -11,7 +11,7 @@ public class EtherscanClient
     readonly HttpClient Client;
     readonly string? ApiKey;
     readonly TimeSpan MinCallInterval;
-    readonly string QueryStart;
+    readonly int ChainId;
 
     static readonly (string Key, string Value) TagLatest = ("tag", "latest");
     static readonly JsonSerializerOptions Options = new()
@@ -29,10 +29,10 @@ public class EtherscanClient
 
     public EtherscanClient(string endpoint = KnownEndpoints.Ethereum, string? apiKey = null, TimeSpan? minCallInterval = null)
     {
-        Client = new HttpClient() { BaseAddress = new Uri(endpoint) };
+        Client = new HttpClient() { BaseAddress = new Uri(endpoint.Split('?')[0]) };
         ApiKey = apiKey;
         MinCallInterval = minCallInterval ?? (string.IsNullOrEmpty(apiKey) ? EtherscanClientOptions.DefaultMinCallIntervalWithoutKey : EtherscanClientOptions.DefaultMinCallIntervalWithKey);
-        QueryStart = endpoint.Contains('?') ? "&" : "?";
+        int.TryParse(endpoint.Split('?').Skip(1).FirstOrDefault()?.Split('&').Where(x => x.StartsWith("chainid=")).FirstOrDefault()?.Split('=').Skip(1).FirstOrDefault(), out ChainId);        
     }
     public EtherscanClient(IOptions<EtherscanClientOptions> options) : this(options.Value.Endpoint, options.Value.ApiKey, options.Value.MinCallInterval)
     {
@@ -63,7 +63,7 @@ public class EtherscanClient
 
     internal async Task<T> GetResultAsync<T>(string module, string action, CancellationToken cancellationToken, params (string Key, string Value)[] parameters) where T : class
     {
-        var callParams = new List<(string Key, string Value)>(3)
+        var callParams = new List<(string Key, string Value)>(4)
         {
             ("module", module),
             ("action", action)
@@ -72,8 +72,12 @@ public class EtherscanClient
         {
             callParams.Add(("apikey", ApiKey));
         }
+        if (ChainId > 0)
+        {
+            callParams.Add(("chainid", ChainId.ToString()));
+        }
 
-        var url = QueryStart + string
+        var url = "?" + string
             .Join("&", parameters
                 .Concat(callParams)
                 .Select(x => $"{x.Key}={x.Value}"));
